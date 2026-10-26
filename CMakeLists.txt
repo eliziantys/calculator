@@ -34,5 +34,6 @@ endfunction()
 add_calculator_plugin(funcsin plugins/sin.cpp)
 add_calculator_plugin(funcdeg plugins/deg.cpp)
 add_calculator_plugin(funcln plugins/ln.cpp)
+add_calculator_plugin(funcexp plugins/exp.cpp)
 
-add_dependencies(calc funcsin funcdeg funcln)
+add_dependencies(calc funcsin funcdeg funcln funcexp)
