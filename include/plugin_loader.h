@@ -18,6 +18,7 @@ public:
 
 private:
     struct Library;
+    void loadFile(const std::string& file);
     std::vector<std::unique_ptr<Library>> libraries_;
     std::unordered_map<std::string, CalculatorUnaryFunction> functions_;
 };
