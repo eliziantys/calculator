@@ -8,9 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(calc src/main.cpp src/plugin_loader.cpp src/parser.cpp)
 target_include_directories(calc PRIVATE include)
 
-if(WIN32)
-    target_compile_definitions(calc PRIVATE NOMINMAX)
-else()
+if(NOT WIN32)
     target_link_libraries(calc PRIVATE ${CMAKE_DL_LIBS})
 endif()
 
