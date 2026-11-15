@@ -7,7 +7,9 @@
 #include <stdexcept>
 
 #ifdef _WIN32
-#  define NOMINMAX
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #else
 #  include <dlfcn.h>
@@ -66,13 +68,18 @@ void PluginRegistry::loadFrom(const std::string& directory) {
     }
     std::sort(files.begin(), files.end());
 
-    for (const auto& file : files) {
-        auto library = std::make_unique<Library>();
+    for (const auto& file : files) loadFile(file.string());
+    if (functions_.empty()) std::cout << "Не загружено ни одной функции-плагина. Доступны только +, -, *, /, ^ и скобки.\n";
+}
+
+void PluginRegistry::loadFile(const std::string& filename) {
+    const std::filesystem::path file(filename);
+    auto library = std::make_unique<Library>();
 #ifdef _WIN32
         library->handle = LoadLibraryW(file.wstring().c_str());
         if (!library->handle) {
             std::cerr << "Пропуск плагина " << file.filename().string() << ": не удалось загрузить DLL\n";
-            continue;
+            return;
         }
         auto init = reinterpret_cast<CalculatorPluginInit>(GetProcAddress(library->handle, "calculator_plugin_init"));
 #else
@@ -80,7 +87,7 @@ void PluginRegistry::loadFrom(const std::string& directory) {
         if (!library->handle) {
             const char* reason = dlerror();
             std::cerr << "Пропуск плагина " << file.filename().string() << ": " << (reason ? reason : "ошибка загрузки") << '\n';
-            continue;
+            return;
         }
         dlerror();
         auto init = reinterpret_cast<CalculatorPluginInit>(dlsym(library->handle, "calculator_plugin_init"));
@@ -89,7 +96,7 @@ void PluginRegistry::loadFrom(const std::string& directory) {
 #endif
         if (!init) {
             std::cerr << "Пропуск плагина " << file.filename().string() << ": отсутствует calculator_plugin_init\n";
-            continue;
+            return;
         }
 
         try {
@@ -97,17 +104,17 @@ void PluginRegistry::loadFrom(const std::string& directory) {
             if (!plugin || plugin->abi_version != CALCULATOR_PLUGIN_ABI_VERSION ||
                 !plugin->name || !plugin->function) {
                 std::cerr << "Пропуск плагина " << file.filename().string() << ": неверный дескриптор или версия ABI\n";
-                continue;
+                return;
             }
             std::string name(plugin->name);
             if (name.empty() || !std::isalpha(static_cast<unsigned char>(name.front())) ||
                 !std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isalnum(c) || c == '_'; })) {
                 std::cerr << "Пропуск плагина " << file.filename().string() << ": некорректное имя функции\n";
-                continue;
+                return;
             }
             if (functions_.count(name)) {
                 std::cerr << "Пропуск плагина " << file.filename().string() << ": функция " << name << " уже зарегистрирована\n";
-                continue;
+                return;
             }
             functions_.emplace(name, plugin->function);
             libraries_.push_back(std::move(library));
@@ -117,8 +124,6 @@ void PluginRegistry::loadFrom(const std::string& directory) {
         } catch (...) {
             std::cerr << "Пропуск плагина " << file.filename().string() << ": неизвестная ошибка инициализации\n";
         }
-    }
-    if (functions_.empty()) std::cout << "Не загружено ни одной функции-плагина. Доступны только +, -, *, /, ^ и скобки.\n";
 }
 
 double PluginRegistry::call(const std::string& name, double argument) const {
